@@ -1,0 +1,11 @@
+Required Packages
+===================
+requests
+python-swiftclient
+py2exe
+activestate python
+bottle
+
+Optional Packages
+===================
+raven
