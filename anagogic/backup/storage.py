@@ -14,7 +14,7 @@ __author__ = 'John Hampton <pacopablo@pacopablo.com>'
 # Stdlib imports
 
 # 3rd party imports
-from dropbox import session, client, rest
+from swiftclient import Connection, ClientException
 
 # Local imports
 from anagogic.backup.util import get_reg_value, APP_REG_KEY, set_reg_value
@@ -22,114 +22,58 @@ from anagogic.backup.util import get_reg_value, APP_REG_KEY, set_reg_value
 
 __all__ = [
     'get_session',
-    'get_client',
-    'is_dropbox_authenticated',
-    'get_access_token',
-    'get_request_token',
+    'is_swift_authenticated',
     'get_account_info',
-    'get_auth_url',
-    'save_access_token',
-    'get_app_folder',
-    'app_folder_exists',
-    'create_app_folder',
+    'get_container',
+    'app_container_exists',
+    'create_container',
     'dbox_munge_path',
 ]
 
 # Dropbox Info
-APP_STORAGE_REG_KEY = APP_REG_KEY + r'\Dropbox'
-ACCESS_TYPE = 'dropbox'
-APP_FOLDER = 'Anagogic Backup'
+APP_STORAGE_REG_KEY = APP_REG_KEY + r'\Swift'
+APP_CONTAINER = 'Anagogic Backup'
 
 
 def get_session():
-    APP_KEY = get_reg_value('HKLM',APP_STORAGE_REG_KEY, 'app_key')
-    APP_SECRET = get_reg_value('HKLM',APP_STORAGE_REG_KEY, 'app_secret')
-    return session.DropboxSession(APP_KEY, APP_SECRET, ACCESS_TYPE)
+    SWIFT_USER = get_reg_value('HKLM', APP_STORAGE_REG_KEY, 'account')
+    SWIFT_PASS = get_reg_value('HKLM', APP_STORAGE_REG_KEY, 'password')
+    SWIFT_KEY = get_reg_value('HKLM', APP_STORAGE_REG_KEY, 'key')
+    SWIFT_AUTH_URL = get_reg_value('HKLM', APP_STORAGE_REG_KEY, 'auth_url')
+    cnx = Connection(SWIFT_AUTH_URL, '%s:%s' % (SWIFT_USER,SWIFT_PASS), SWIFT_KEY)
+    cnx.get_auth()
+    return cnx
 
-
-def get_client(access_token, sess=None):
-    if not sess:
-        sess = get_session()
-    sess.set_token(access_token.key, access_token.secret)
-    return client.DropboxClient(sess)
-
-
-def is_dropbox_authenticated(sess):
-    """ Checks to see if the application is already attached and authorized to
-    a dropbox account
+def is_swift_authenticated(sess):
+    """ Attempts to create a swift connection.
 
     """
 
-    access_token = get_access_token()
-    authenticated = False
-    if access_token.key and access_token.secret:
-        try:
-            client = get_client(access_token, sess=sess)
-            info = client.account_info()
-            authenticated = True
-        except:
-            pass
+    try:
+        cnx = get_session()
+        authenticated = True
+    except ClientException:
+        authenticated = False
+        pass
     return authenticated
 
 
-def get_access_token():
-    """ Return the Dropbox access token stored in the registry
-
-    """
-
-    access_key = get_reg_value('HKLM', APP_STORAGE_REG_KEY, 'access_key')
-    access_secret = get_reg_value('HKLM', APP_STORAGE_REG_KEY, 'access_secret')
-    return session.OAuthToken(access_key, access_secret)
-
-
-def get_request_token():
-    """ Return the Dropbox request token stored in the registry
-
-    """
-
-    request_key = get_reg_value('HKLM', APP_STORAGE_REG_KEY, 'request_key')
-    request_secret = get_reg_value('HKLM', APP_STORAGE_REG_KEY, 'request_secret')
-    return session.OAuthToken(request_key, request_secret)
-
-
 def get_account_info(sess=None):
-    access_token = get_access_token()
-    client = get_client(access_token, sess=sess)
-    return client.account_info()
+    cnx = get_session()
+    return cnx.get_account()
 
 
-def get_auth_url(sess=None, host='127.0.0.1'):
-    """ Returns the URL for authorizing the application
-
-    """
-    if not sess:
-        sess = get_session()
-    request_token = sess.obtain_request_token()
-    callback = "http://%s/authorize" % (host)
-    url = sess.build_authorize_url(request_token, oauth_callback=callback)
-    set_reg_value('HKLM', APP_STORAGE_REG_KEY, 'request_key', request_token.key)
-    set_reg_value('HKLM', APP_STORAGE_REG_KEY, 'request_secret', request_token.secret)
-    return url
-
-def save_access_token(access_token):
-    """ Save the access token received from Dropbox
-
-    """
-    set_reg_value('HKLM', APP_STORAGE_REG_KEY, 'access_key', access_token.key)
-    set_reg_value('HKLM', APP_STORAGE_REG_KEY, 'access_secret', access_token.secret)
-
-
-def get_app_folder():
+def get_container():
     """ Return the path of the "App folder".
 
      By default the "App folder" is "Anaogic Backup"
 
     """
-    return get_reg_value('HKLM', APP_STORAGE_REG_KEY, 'appfolder',
-                            default=APP_FOLDER)
+    return get_reg_value('HKLM', APP_STORAGE_REG_KEY, 'container',
+                            default=APP_CONTAINER)
 
 
-def app_folder_exists(sess):
+def app_container_exists(sess):
     """ Return whether the "App folder" exists in the linked users' dropbox
 
      By default, the "App folder" is "Anagogic Backup".  This can be changed
@@ -138,26 +82,22 @@ def app_folder_exists(sess):
     """
 
     exists = False
-    access_token = get_access_token()
-    app_folder = get_app_folder()
-    client = get_client(access_token, sess=sess)
+    app_container = get_container()
+    cnx = get_session()
     try:
-        client.metadata(app_folder)
-        exists = True
-    except rest.ErrorResponse, e:
-        if e.status in [304, 406]:
-            exists = True
-        elif e.status == 400:
-            log.error('Error when checking for existence of '
-                                       'app folder: %s\nError message:\n\n%s'
-                                       % (app_folder, e.error_msg))
-            raise e
-        elif e.status == 404:
-            exits = False
+        info = get_account_info()
+        for container in info[1]:
+            if container['name'] == app_container:
+                exists = True
+                break
+    except ClientException, e:
+        log.error('Error when checking for existence of '
+                                   'app container: %s\nError message:\n\n%s'
+                                   % (app_container, e.error_msg))
     return exists
 
 
-def create_app_folder(sess):
+def create_container(sess):
     """ Create "App folder" in the linked users' dropbox
 
     By default, the folder created is "Anagogic Backup".  This can be changed
@@ -165,18 +105,14 @@ def create_app_folder(sess):
 
     """
 
-    client = get_client(get_access_token(), sess)
-    app_folder = get_app_folder()
+    cnx = get_session()
+    app_container = get_container()
     try:
-        client.file_create_folder(app_folder)
-    except rest.ErrorResponse, e:
-        if e.status == 400:
-            log.errror('Unable to create app folder: %s\nError Message:\n\n%s'
-                       % (app_folder, e.error_msg))
-            raise e
-        elif e.status == 403:
-            # Directory already exists.  That's OK for our purpose
-            pass
+        cnx.file_create_folder(app_container)
+    except ClientException, e:
+        log.errror('Unable to create app folder: %s\nError Message:\n\n%s'
+                   % (app_container, e.error_msg))
+        raise e
 
 
 def dbox_munge_path(path):
@@ -198,8 +134,7 @@ def dbox_munge_path(path):
 
     """
 
-    app_folder = get_app_folder()
-    dbox_absolute_path = app_folder + '/' + \
+    dbox_absolute_path = '/' + \
                          path.replace(':\\', '_Drive/'
                          ).replace('\\', '/')
     return dbox_absolute_path

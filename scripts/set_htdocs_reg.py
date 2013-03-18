@@ -14,6 +14,6 @@ from _winreg import KEY_WRITE, CloseKey, SetValueEx, REG_SZ
 
 APP_REG_KEY = r'Software\Anagogic\Backup'
 key = OpenKey(HKEY_LOCAL_MACHINE, APP_REG_KEY, 0, KEY_WRITE)
-SetValueEx(key, 'htdocs', 0, REG_SZ, r'C:\Development\anagogic-backup\files\htdocs')
-SetValueEx(key, 'templates', 0, REG_SZ, r'C:\Development\anagogic-backup\files\templates')
+SetValueEx(key, 'htdocs', 0, REG_SZ, r'C:\Development\anagogic-backup-swift\files\htdocs')
+SetValueEx(key, 'templates', 0, REG_SZ, r'C:\Development\anagogic-backup-swift\files\templates')
 CloseKey(key)

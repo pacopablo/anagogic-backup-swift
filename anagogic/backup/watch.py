@@ -8,6 +8,7 @@
 #
 # Author: John Hampton <pacopablo@pacopablo.com>
 from anagogic.backup.log import log
+from swiftclient import ClientException
 
 __author__ = 'John Hampton <pacopablo@pacopablo.com>'
 
@@ -45,7 +46,7 @@ from win32api import FindFirstChangeNotification, FindNextChangeNotification
 from win32api import FindCloseChangeNotification
 from win32file import CreateFile, GENERIC_WRITE, FILE_SHARE_READ, OPEN_EXISTING
 from win32file import WriteFile, CloseHandle
-from dropbox import rest
+
 
 
 
@@ -53,8 +54,7 @@ from dropbox import rest
 # Local imports
 from anagogic.backup.util import get_reg_key_items, APP_REG_KEY, get_reg_value
 from anagogic.backup.util import set_reg_value, get_file_stats, del_reg_value
-from anagogic.backup.storage import get_session, get_app_folder
-from anagogic.backup.storage import get_access_token, get_client
+from anagogic.backup.storage import get_session, get_container
 from anagogic.backup.storage import dbox_munge_path
 
 APP_DIR_REG_KEY = APP_REG_KEY + r'\Directories'
@@ -296,28 +296,24 @@ def sync_dir(dir, sess=None):
         if not sess:
             sess = get_session()
         log.info('got session')
-        client = get_client(get_access_token(), sess)
-        log.info('got client')
-        dbox_hash_path = get_app_folder() + HASHES +  dir[3:].replace("\\", '_')
+        container = get_container()
+        hash_path = HASHES + dir[3:].replace("\\", '_')
+        log.info('created hash_path')
         try:
-            manifest = json.load(client.get_file(dbox_hash_path))
+            log.info('getting hash from %s' % hash_path)
+            manifest = json.loads(sess.get_object(container, hash_path)[1])
             log.info('retrieved manifest')
-        except rest.ErrorResponse, e:
+        except ClientException, e:
             log.warning('Error getting manifest:\n   Status: %d\n   Message: %s'
-                        % (e.status, e.error_msg), culprit=__culprit__)
-            if e.status == 404:
-                # The manifest didn't exist on dropbox.  This means we need to seed
+                        % (e.http_status, e.message), culprit=__culprit__)
+            if e.http_status == 404:
+                # The manifest didn't exist on swift.  This means we need to seed
                 # the directory.  We can do so by starting with an empty manifest
-                log.evtlog.info('Dropbox: manifest doesn\'t exist.  Create a blank one')
+                log.evtlog.info('Swift: manifest doesn\'t exist.  Create a blank one')
                 manifest = {}
-            elif e.status == 400:
+            elif e.http_status == 400:
                 log.error('Error loading manifest for %s\nError message:\n\n%s'
-                          % (dir, e.error_msg), culprit=__culprit__)
-                return
-            elif e.status == 200:
-                log.error('Received 200 from get_file.  Something no worky',
-                         culprit=__culprit__)
-                # Something did not go correctly
+                          % (dir, e.message), culprit=__culprit__)
                 return
         files_changed = False
         visited_files = []
@@ -336,21 +332,21 @@ def sync_dir(dir, sess=None):
                     # need to upload the file to dropbox and update the manifest
                     manifest[absolute_path] = file_stats
                     uploaded_file_list.append(absolute_path)
-                    client.put_file(dbox_absolute_path, open(absolute_path, 'rb'), overwrite=True)
+                    sess.put_object(container, dbox_absolute_path, open(absolute_path, 'rb').read())
                     files_changed = True
                 continue
             continue
         backup_data['uploaded_files'] = '\n' + '\n'.join(uploaded_file_list)
         deleted_files = set(manifest.keys()).difference(set(visited_files))
         for f in deleted_files:
-            client.file_delete(dbox_munge_path(f))
+            sess.delete_object(container, dbox_munge_path(f))
             files_changed = True
             del manifest[f]
             deleted_file_list.append(absolute_path)
             continue
         backup_data['deleted_files'] = '\n' + '\n'.join(deleted_file_list)
         if files_changed:
-            client.put_file(dbox_hash_path, json.dumps(manifest), overwrite=True)
+            sess.put_object(container, hash_path, json.dumps(manifest))
         set_directory_change_time(dir)
         end = datetime.datetime.now()
         backup_data['duration'] = str(end - start)
@@ -358,7 +354,7 @@ def sync_dir(dir, sess=None):
         backup_data['end'] = end.strftime('%H:%M:%S')
         if files_changed:
             log.sentry.info('Backup complete', culprit=__culprit__, extra=backup_data)
-    except rest.ErrorResponse, e:
-        log.error('Dropbox error: %s' % e.error_msg, culprit=__culprit__)
+    except ClientException, e:
+        log.error('Dropbox error: %s' % e.message, culprit=__culprit__)
     except Exception, e:
         log.error('Error', exc_info=True, culprit=__culprit__)

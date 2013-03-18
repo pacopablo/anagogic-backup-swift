@@ -4,7 +4,7 @@ from distutils.core import setup
 import py2exe
 import sys
 
-__VERSION__ = '0.9'
+__VERSION__ = '0.10'
 
 class Target:
     def __init__(self, **kw):

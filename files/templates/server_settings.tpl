@@ -3,60 +3,37 @@
     <fieldset>
         <legend>Server Settings</legend>
         <div class="control-group">
-            <label class="control-label">
-                Dropbox
+            <label class="control-label" for="settings_swift_account">
+                Swift Account
             </label>
             <div class="controls">
-                <div class="btn-group">
-                    %if not dropbox['appkey']:
-                        <a class="btn btn-primary" href="#app_key_modal" role="button" data-toggle="modal">Set App Keys</a>
-                    %else:
-                        %if not dropbox['linked']:
-                            <a class="btn btn-primary" href="{{dropbox['authorize']}}"
-                                    ><i class="icon-user icon-white"></i> Link</a>
-                        %else:
-                            <a class="btn btn-primary" href="#"><i class="icon-user icon-white"></i> {{dropbox['account']['display_name']}}</a>
-                            <a class="btn btn-primary dropdown-toggle" data-toggle="dropdown" href="#"><span class="caret"></span></a>
-                            <ul class="dropdown-menu">
-                                <li><a href="/unlink"><i class="icon-ban-circle"></i> Unlink</a></li>
-                            </ul>
-                        %end
-                    %end
-                </div>
+                <input type="text" class="input-medium" id="settings_swift_account"
+                       name="settings_swift_account"
+                       value="{{data['swift_account']}}">
             </div>
-            <div id="app_key_modal" class="modal hide fade" role="dialog">
-                <div class="modal-header">
-                    <button type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>
-                    <h3>Set Dropbox App Keys</h3>
-                </div>
-                <div class="modal-body">
-                    <div class="control-group">
-                        <label class="control-label" for="settings_app_key">
-                            App Key:
-                        </label>
-                        <div class="controls">
-                            <input type="text" class="input-medium" id="settings_app_key"
-                                   name="app_key">
-                        </div>
-                    </div>
-                    <div class="control-group">
-                        <label class="control-label" for="settings_app_secret">
-                            App Secret:
-                        </label>
-                        <div class="controls">
-                            <input type="text" class="input-medium" id="settings_app_secret"
-                                   name="app_secret">
-                        </div>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <a href="#" class="btn">Close</a>
-<!--                    <div class="form-actions">
--->
-                        <button type="submit" class="btn btn-primary">Save</button>
-<!--                    </div>
--->
-                </div>
+            <label class="control-label" for="settings_swift_password">
+                Swift Password
+            </label>
+            <div class="controls">
+                <input type="text" class="input-medium" id="settings_swift_password"
+                       name="settings_swift_password"
+                       value="{{data['swift_password']}}">
+            </div>
+            <label class="control-label" for="settings_swift_key">
+                Swift Key
+            </label>
+            <div class="controls">
+                <input type="text" class="input-medium" id="settings_swift_key"
+                       name="settings_swift_key"
+                       value="{{data['swift_key']}}">
+            </div>
+            <label class="control-label" for="settings_swift_key">
+                Swift Auth URL
+            </label>
+            <div class="controls">
+                <input type="text" class="input-medium" id="settings_swift_auth_url"
+                       name="settings_swift_auth_url"
+                       value="{{data['swift_auth_url']}}">
             </div>
         </div>
         <div class="control-group">
@@ -71,14 +48,14 @@
             </div>
         </div>
         <div class="control-group">
-            <label class="control-label" for="settings_appfolder">
+            <label class="control-label" for="settings_container">
                 App Folder
             </label>
             <div class="controls">
-                <input type="text" class="input-medium" id="settings_appfolder"
-                       name="settings_appfolder"
-                       value="{{data['appfolder']}}">
-                <p>Folder in Dropbox under which all directories will be stored</p>
+                <input type="text" class="input-medium" id="settings_container"
+                       name="settings_container"
+                       value="{{data['container']}}">
+                <p>Swift container under which all directories will be stored</p>
             </div>
         </div>
         <div class="control-group">

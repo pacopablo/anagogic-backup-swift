@@ -87,7 +87,7 @@
             <div class="row-fluid">
                 <div class="span4">
                     <!-- Server Settings -->
-                    %include server_settings data=server_data, dropbox=dropbox_data
+                    %include server_settings data=server_data
                 </div>
                 <div class="span8">
                     <!-- Watched Directories -->

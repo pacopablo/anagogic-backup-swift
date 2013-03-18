@@ -17,15 +17,13 @@ import os
 # 3rd party imports
 from bottle import Bottle, request, static_file, view, TEMPLATE_PATH, debug
 from bottle import redirect
-from dropbox import rest
+from swiftclient import ClientException
 
 # Local imports
 from anagogic.backup.util import get_reg_value, APP_REG_KEY, set_reg_value
-from anagogic.backup.storage import get_session, is_dropbox_authenticated
-from anagogic.backup.storage import get_account_info, get_auth_url
-from anagogic.backup.storage import get_request_token, save_access_token
-from anagogic.backup.storage import get_access_token, create_app_folder
-from anagogic.backup.storage import app_folder_exists, APP_STORAGE_REG_KEY
+from anagogic.backup.storage import get_session
+from anagogic.backup.storage import create_container
+from anagogic.backup.storage import app_container_exists, APP_STORAGE_REG_KEY
 from anagogic.backup.watch import get_watched_directories, get_watched_directory_info
 from anagogic.backup.watch import unwatch_directory
 
@@ -102,24 +100,13 @@ def index():
     global htdocs, templates
 
     account_info = ''
-    auth_url = ''
 
     try:
         sess = get_session()
-        try:
-            authenticated = is_dropbox_authenticated(sess)
-        except rest.ErrorResponse:
-            authenticated = False
-
-        if authenticated:
-            account_info = get_account_info(sess)
-            if not app_folder_exists(sess):
-                create_app_folder(sess)
-        else:
-            auth_url = get_auth_url(sess, request.environ['HTTP_HOST'])
-    except rest.ErrorResponse:
-        log.error('Dropbox get_session() error', exc_info=True, culprit=__culprit__)
-
+        if not app_container_exists(sess):
+            create_container(sess)
+    except ClientException, e:
+        log.error('Swift get_session() error: %s' % e.message, exc_info=True, culprit=__culprit__)
 
     watched_data = {
         'dirs': []
@@ -138,63 +125,25 @@ def index():
 
     restartneeded = get_reg_value('HKLM', APP_REG_KEY, 'restartneeded')
     internal_error = get_reg_value('HKLM', APP_REG_KEY, 'internal_error', False)
-    app_key_set = get_reg_value('HKLM', APP_STORAGE_REG_KEY, 'app_key')
-    app_key_set = app_key_set and get_reg_value('HKLM', APP_STORAGE_REG_KEY, 'app_secret')
     data = {
         'template_lookup': [templates,],
         'restartneeded': restartneeded,
         'internalerror': internal_error,
-        'dropbox_data': {
-            'appkey': app_key_set,
-            'linked': authenticated,
-            'account': account_info,
-            'authorize': auth_url,
-        },
         'server_data': {
             'hostname': get_reg_value('HKLM', APP_REG_KEY, 'host'),
             'port': str(get_reg_value('HKLM', APP_REG_KEY, 'port')),
-            'appfolder': get_reg_value('HKLM', APP_STORAGE_REG_KEY, 'appfolder',
+            'container': get_reg_value('HKLM', APP_STORAGE_REG_KEY, 'appfolder',
                                         default='Anagogic Backup'),
+            'swift_account': get_reg_value('HKLM', APP_STORAGE_REG_KEY, 'account'),
+            'swift_password': get_reg_value('HKLM', APP_STORAGE_REG_KEY, 'password'),
+            'swift_key': get_reg_value('HKLM', APP_STORAGE_REG_KEY, 'key'),
+            'swift_auth_url': get_reg_value('HKLM', APP_STORAGE_REG_KEY, 'auth_url'),
             'sentrydsn': get_reg_value('HKLM', APP_REG_KEY, 'sentry_dsn'),
             'sentrysite': get_reg_value('HKLM', APP_REG_KEY, 'sentry_site'),
         },
         'watched_data': watched_data,
     }
     return data
-
-
-@app.get('/authorize')
-@check_internal_error
-def auth_callback():
-    request_token_key = request.query.oauth_token
-    if not request_token_key:
-        return "Expected a request token key back!"
-
-#    try:
-    sess = get_session()
-    request_token = get_request_token()
-    access_token = sess.obtain_access_token(request_token)
-    save_access_token(access_token)
-    if not app_folder_exists(sess):
-        create_app_folder(sess)
-#    except rest.ErrorResponse, e:
-#        log.error('Application auth callback failure', exc_info=True,
-#                    culprit=__culprit__)
-#        set_reg_value('HKLM', APP_REG_KEY, 'internal_error', True)
-    redirect('/index.html')
-
-
-@app.get('/unlink')
-@check_internal_error
-def unlink_dropbox():
-    sess = get_session()
-    access_token = get_access_token()
-    sess.set_token(access_token.key, access_token.secret)
-    sess.unlink()
-    access_token.key = ''
-    access_token.secret = ''
-    save_access_token(access_token)
-    redirect('/index.html')
 
 
 @app.post('/save_settings')
@@ -228,19 +177,27 @@ def save_settings():
     if data and (data <> sentrysite):
         sentrysite = data
         restartneeded = 1
-    app_key = get_reg_value('HKLM', APP_STORAGE_REG_KEY, 'app_key')
-    if not app_key:
-        app_key = request.forms.app_key
-    app_secret = get_reg_value('HKLM', APP_STORAGE_REG_KEY, 'app_secret')
-    if not app_secret:
-        app_secret = request.forms.app_secret
-    appfolder = request.forms.settings_appfolder
+    swift_key = get_reg_value('HKLM', APP_STORAGE_REG_KEY, 'key')
+    if not swift_key:
+        swift_key = request.forms.settings_swift_key
+    swift_password = get_reg_value('HKLM', APP_STORAGE_REG_KEY, 'password')
+    if not swift_password:
+        swift_password = request.forms.settings_swift_password
+    swift_account = get_reg_value('HKLM', APP_STORAGE_REG_KEY, 'account')
+    if not swift_account:
+        swift_account = request.forms.settings_swift_account
+    swift_auth_url = get_reg_value('HKLM', APP_STORAGE_REG_KEY, 'auth_url')
+    if not swift_auth_url:
+        swift_auth_url = request.forms.settings_swift_auth_url
+    container = request.forms.settings_container
     set_reg_value('HKLM', APP_REG_KEY, 'hostname', hostname)
     set_reg_value('HKLM', APP_REG_KEY, 'port', port)
     set_reg_value('HKLM', APP_REG_KEY, 'restartneeded', restartneeded)
-    set_reg_value('HKLM', APP_STORAGE_REG_KEY, 'appfolder', appfolder)
-    set_reg_value('HKLM', APP_STORAGE_REG_KEY, 'app_key', app_key)
-    set_reg_value('HKLM', APP_STORAGE_REG_KEY, 'app_secret', app_secret)
+    set_reg_value('HKLM', APP_STORAGE_REG_KEY, 'container', container)
+    set_reg_value('HKLM', APP_STORAGE_REG_KEY, 'key', swift_key)
+    set_reg_value('HKLM', APP_STORAGE_REG_KEY, 'password', swift_password)
+    set_reg_value('HKLM', APP_STORAGE_REG_KEY, 'account', swift_account)
+    set_reg_value('HKLM', APP_STORAGE_REG_KEY, 'auth_url', swift_auth_url)
     set_reg_value('HKLM', APP_REG_KEY, 'sentry_dsn', sentrydsn)
     set_reg_value('HKLM', APP_REG_KEY, 'sentry_site', sentrysite)
     redirect('/index.html')

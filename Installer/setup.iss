@@ -11,7 +11,7 @@
 #define MyAppVersion "0.10"
 #define MyAppPublisher "Anagogic"
 #define MyAppURL "https://github.com/pacopablo/anagogic-backup-swift"
-#define MyAppExeName "backup-swift.exe"
+#define MyAppExeName "backup.exe"
 #define SetupFilename "anagogic-swift-backup-setup"
 
 [Setup]
@@ -32,7 +32,7 @@ LicenseFile=C:\Development\anagogic-backup-swift\COPYING.rst
 OutputBaseFilename={#SetupFilename}
 Compression=lzma
 SolidCompression=yes
-SignTool=Standard /d $qAnagogic Backup Installer$q $f
+;SignTool=Standard /d $qAnagogic Backup Installer$q $f
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
@@ -87,14 +87,14 @@ Source: "C:\Development\anagogic-backup-swift\files\htdocs\js\vendor\jquery-1.8.
 Source: "C:\Development\anagogic-backup-swift\files\templates\index.tpl"; DestDir: "{app}\templates"; Flags: ignoreversion
 Source: "C:\Development\anagogic-backup-swift\files\templates\watched_dirs.tpl"; DestDir: "{app}\templates"; Flags: ignoreversion
 Source: "C:\Development\anagogic-backup-swift\files\templates\server_settings.tpl"; DestDir: "{app}\templates"; Flags: ignoreversion
-Source: "C:\Development\anagogic-backup-swift\dropbox\trusted-certs.crt"; DestDir: "{app}"; Flags: ignoreversion
+
 
 [Run]
 Filename: "{app}\{#MyAppExeName}"; Parameters: "install"
 
 [UninstallRun]
 Filename: "{app}\{#MyAppExeName}"; Parameters: "remove"
-
+  
 
 [Registry]
 Root: "HKLM32"; Subkey: "Software\Anagogic"; Flags: uninsdeletekeyifempty
@@ -107,11 +107,11 @@ Root: "HKLM32"; Subkey: "Software\Anagogic\Backup"; ValueType: string; ValueName
 Root: "HKLM32"; Subkey: "Software\Anagogic\Backup"; ValueType: string; ValueName: "htdocs"; ValueData: "{app}\htdocs"; Flags: uninsdeletekey
 Root: "HKLM32"; Subkey: "Software\Anagogic\Backup"; ValueType: string; ValueName: "templates"; ValueData: "{app}\templates"; Flags: uninsdeletekey
 Root: "HKLM32"; Subkey: "Software\Anagogic\Backup"; ValueType: dword; ValueName: "restartneeded"; ValueData: "0"; Flags: uninsdeletekey
-Root: "HKLM32"; Subkey: "Software\Anagogic\Backup\Swift"; ValueType: string; ValueName: "access_key"; Flags: uninsdeletekey
-Root: "HKLM32"; Subkey: "Software\Anagogic\Backup\Swift"; ValueType: string; ValueName: "access_secret"; Flags: uninsdeletekey
-Root: "HKLM32"; Subkey: "Software\Anagogic\Backup\Swift"; ValueType: string; ValueName: "request_key"; Flags: uninsdeletekey
-Root: "HKLM32"; Subkey: "Software\Anagogic\Backup\Swift"; ValueType: string; ValueName: "request_secret"; Flags: uninsdeletekey
-Root: "HKLM32"; Subkey: "Software\Anagogic\Backup\Swift"; ValueType: string; ValueName: "appfolder"; ValueData: "Anagogic Backup"; Flags: uninsdeletekey
+Root: "HKLM32"; Subkey: "Software\Anagogic\Backup\Swift"; ValueType: string; ValueName: "auth_url"; Flags: uninsdeletekey
+Root: "HKLM32"; Subkey: "Software\Anagogic\Backup\Swift"; ValueType: string; ValueName: "account"; Flags: uninsdeletekey
+Root: "HKLM32"; Subkey: "Software\Anagogic\Backup\Swift"; ValueType: string; ValueName: "key"; Flags: uninsdeletekey
+Root: "HKLM32"; Subkey: "Software\Anagogic\Backup\Swift"; ValueType: string; ValueName: "password"; Flags: uninsdeletekey
+Root: "HKLM32"; Subkey: "Software\Anagogic\Backup\Swift"; ValueType: string; ValueName: "container"; ValueData: "Anagogic Backup"; Flags: uninsdeletekey
 Root: "HKLM32"; Subkey: "Software\Anagogic\Backup"; ValueType: string; ValueName: "namedpipe"; ValueData: "\\.\pipe\AnagogicBackupSwiftPipe"; Flags: uninsdeletekey
 Root: "HKCR32"; Subkey: "Folder\shell\Watch"; Flags: uninsdeletekey
 Root: "HKCR32"; Subkey: "Folder\shell\Watch\command"; ValueType: string; ValueData: "{app}\watchdir.exe ""%L"""; Flags: uninsdeletekey
