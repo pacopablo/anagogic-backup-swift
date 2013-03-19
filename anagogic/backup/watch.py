@@ -7,6 +7,8 @@
 # you should have received as part of this distribution.
 #
 # Author: John Hampton <pacopablo@pacopablo.com>
+
+# More comments
 from anagogic.backup.log import log
 from swiftclient import ClientException
 
@@ -332,7 +334,7 @@ def sync_dir(dir, sess=None):
                     # need to upload the file to dropbox and update the manifest
                     manifest[absolute_path] = file_stats
                     uploaded_file_list.append(absolute_path)
-                    sess.put_object(container, dbox_absolute_path, open(absolute_path, 'rb').read())
+                    sess.put_object(container, dbox_absolute_path, open(absolute_path, 'rb'))
                     files_changed = True
                 continue
             continue

@@ -80,7 +80,7 @@ Source: "C:\Development\anagogic-backup-swift\files\htdocs\js\vendor\jquery-1.8.
 Source: "C:\Development\anagogic-backup-swift\files\templates\index.tpl"; DestDir: "{app}\templates"; Flags: ignoreversion
 Source: "C:\Development\anagogic-backup-swift\files\templates\watched_dirs.tpl"; DestDir: "{app}\templates"; Flags: ignoreversion
 Source: "C:\Development\anagogic-backup-swift\files\templates\server_settings.tpl"; DestDir: "{app}\templates"; Flags: ignoreversion
-
+Source: "C:\Development\anagogic-backup-swift\files\templates\browse.tpl"; DestDir: "{app}\templates"; Flags: ignoreversion
 
 [Run]
 Filename: "{app}\backup.exe"; Parameters: "install"

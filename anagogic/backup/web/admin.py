@@ -13,16 +13,17 @@ __author__ = 'John Hampton <pacopablo@pacopablo.com>'
 
 # Stdlib imports
 import os
+import urllib
 
 # 3rd party imports
 from bottle import Bottle, request, static_file, view, TEMPLATE_PATH, debug
-from bottle import redirect
-from swiftclient import ClientException
+from bottle import redirect, response
+from swiftclient import ClientException, quote
 
 # Local imports
 from anagogic.backup.util import get_reg_value, APP_REG_KEY, set_reg_value
 from anagogic.backup.storage import get_session
-from anagogic.backup.storage import create_container
+from anagogic.backup.storage import create_container, get_container
 from anagogic.backup.storage import app_container_exists, APP_STORAGE_REG_KEY
 from anagogic.backup.watch import get_watched_directories, get_watched_directory_info
 from anagogic.backup.watch import unwatch_directory
@@ -209,3 +210,43 @@ def watchdirs():
     for directory in selected_dirs:
         unwatch_directory(directory)
     redirect('/index.html')
+
+
+@app.get('/browse.html')
+@view('browse.tpl')
+def browse():
+    global htdocs, templates
+
+    cnx = get_session()
+    container_info = cnx.get_container(get_container())
+    restartneeded = get_reg_value('HKLM', APP_REG_KEY, 'restartneeded')
+    internal_error = get_reg_value('HKLM', APP_REG_KEY, 'internal_error', False)
+    file_data = {
+        'template_lookup': [templates,],
+        'restartneeded': restartneeded,
+        'internalerror': internal_error,
+        'dirs': []
+    }
+    for files in container_info[1]:
+        file_data['dirs'].append(
+            {
+                'path': files['name'],
+                'path_encoded': quote(files['name'], safe='').lstrip('/'),
+                'changed': files['last_modified'],
+                'size': files['bytes']
+            }
+        )
+        continue
+    return file_data
+
+@app.get('/view')
+def view_object():
+    path = request.query.path
+    cnx = get_session()
+    container = get_container()
+    log.debug('path: %s' % path)
+    object_data = cnx.get_object(container, urllib.unquote(path))
+    response.content_type = object_data[0]['content-type']
+    response.content_length = object_data[0]['content-length']
+    response.content_disposition = 'Content-Disposition: attachment; filename="%s"' % urllib.unquote(path)
+    return object_data[1]
